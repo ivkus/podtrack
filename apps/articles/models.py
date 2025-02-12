@@ -2,7 +2,17 @@ from django.db import models
 
 class Article(models.Model):
     title = models.CharField(max_length=200)
-    content = models.TextField()
+    text_file = models.FileField(
+        upload_to='articles/texts/',
+        null=True,
+        blank=True
+    )
+    audio_file = models.FileField(
+        upload_to='articles/audio/',
+        null=True,
+        blank=True
+    )
+    content = models.TextField(blank=True)  # 也设置为可空
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

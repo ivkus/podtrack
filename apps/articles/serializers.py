@@ -33,7 +33,7 @@ class SentenceSerializer(serializers.ModelSerializer):
 class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
-        fields = ['id', 'title', 'content', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'text_file', 'audio_file', 'created_at', 'updated_at']
 
 
 class ArticleDetailSerializer(serializers.ModelSerializer):

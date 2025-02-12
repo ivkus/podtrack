@@ -9,9 +9,11 @@ from .serializers import (
 )
 from apps.vocabulary.models import VocabularyItem
 from .text_analyzer import PodcastTextAnalyzer
+import chardet
 
 class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all()
+    serializer_class = ArticleSerializer
 
     def get_serializer_class(self):
         # 根据不同的动作使用不同的序列化器
@@ -49,3 +51,38 @@ class ArticleViewSet(viewsets.ModelViewSet):
         
         serializer = ArticleAnalysisSerializer(article)
         return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            title = request.data.get('title')
+            text_file = request.FILES.get('textFile')
+            audio_file = request.FILES.get('audioFile')
+
+            if not all([title, text_file, audio_file]):
+                return Response(
+                    {'error': 'Missing required fields'},
+                    status=400
+                )
+
+            # 读取文本文件内容
+            raw_content = text_file.read()
+            # 检测编码
+            encoding = chardet.detect(raw_content)['encoding']
+            content = raw_content.decode(encoding)
+
+            # 创建文章记录
+            article = Article.objects.create(
+                title=title,
+                text_file=text_file,
+                audio_file=audio_file,
+                content=content
+            )
+
+            serializer = self.get_serializer(article)
+            return Response(serializer.data, status=201)
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=500
+            )
