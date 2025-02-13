@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 from pydub import AudioSegment
+import csv
 
 class PodcastAudioAnalyzer:
     def __init__(self, model_path: str = None):
@@ -120,10 +121,6 @@ def main():
         help='Path to Vosk model (optional)',
         default=None
     )
-    parser.add_argument(
-        '--output',
-        help='Output JSON file path (optional)'
-    )
     
     args = parser.parse_args()
     
@@ -131,16 +128,20 @@ def main():
         analyzer = PodcastAudioAnalyzer(args.model)
         results = analyzer.analyze_audio(args.input)
         
-        output = {
-            'segments': results
-        }
+        # Set up CSV writer to write directly to stdout
+        writer = csv.writer(sys.stdout)
+        writer.writerow(['start', 'end', 'conf', 'word'])  # Write header
         
-        if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump(output, f, ensure_ascii=False, indent=2)
-            print(f"Results saved to: {args.output}")
-        else:
-            print(json.dumps(output, ensure_ascii=False, indent=2))
+        # Write each word from all segments
+        for segment in results:
+            if 'result' in segment:
+                for word in segment['result']:
+                    writer.writerow([
+                        word['start'],
+                        word['end'],
+                        word['conf'],
+                        word['word']
+                    ])
             
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)

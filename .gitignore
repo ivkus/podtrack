@@ -1,5 +1,7 @@
 .idea/*
 db.*
 *.pyc
-claude.txt
-test3.wav
+*.txt
+*.wav
+*.csv
+vosk-model-en-us-0.22
