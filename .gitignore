@@ -1,8 +1,6 @@
 .idea/*
 db.*
 *.pyc
-*.txt
-*.wav
-*.csv
+
 vosk-model-en-us-0.22
 out
