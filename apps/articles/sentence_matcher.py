@@ -116,8 +116,8 @@ def match_transcript_with_timings(transcript_file: str, timings_file: str) -> Li
     segments = matcher.load_word_segments(timings_file)
     return matcher.match_sentences(sentences, segments)
 
-# Tests
-def create_test_files():
+@pytest.fixture
+def test_files():
     """Create temporary files for testing"""
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as transcript_file:
         transcript_file.write("""
@@ -147,63 +147,52 @@ def create_test_files():
         writer.writerows(test_data)
         timings_path = timings_file.name
 
-    return transcript_path, timings_path
-
-def run_tests():
-    """Run all tests"""
-    # Create test files
-    transcript_path, timings_path = create_test_files()
+    yield transcript_path, timings_path
     
-    try:
-        # Initialize matcher
-        matcher = SentenceMatcher()
-        
-        # Test transcript loading
-        sentences = matcher.load_transcript(transcript_path)
-        assert len(sentences) == 3
-        assert sentences[0].strip() == "The United States is a country."
-        
-        # Test word segments loading
-        segments = matcher.load_word_segments(timings_path)
-        assert len(segments) == 12
-        assert segments[0]['text'] == 'the'
-        assert segments[0]['start'] == 0.09
-        assert segments[0]['end'] == 0.24
-        
-        # Test token normalization
-        text = "The United States: is a country"
-        tokens = matcher.get_normalized_tokens(text)
-        assert 'united' in tokens
-        assert 'states' in tokens
-        assert 'country' in tokens
-        assert 'the' not in tokens  # stop word should be removed
-        
-        # Test full matching
-        results = match_transcript_with_timings(transcript_path, timings_path)
-        assert len(results) == 3
-        first_match = results[0]
-        assert first_match['start'] == 0.09  # start of "the"
-        assert first_match['end'] == 2.34   # end of "country"
-        
-        print("All tests passed!")
-        
-    finally:
-        # Cleanup
-        os.unlink(transcript_path)
-        os.unlink(timings_path)
+    # Cleanup
+    os.unlink(transcript_path)
+    os.unlink(timings_path)
+
+@pytest.fixture
+def matcher():
+    return SentenceMatcher()
+
+def test_transcript_loading(matcher, test_files):
+    transcript_path, _ = test_files
+    sentences = matcher.load_transcript(transcript_path)
+    assert len(sentences) == 3
+    assert sentences[0].strip() == "The United States is a country."
+
+def test_word_segments_loading(matcher, test_files):
+    _, timings_path = test_files
+    segments = matcher.load_word_segments(timings_path)
+    assert len(segments) == 12
+    assert segments[0]['text'] == 'the'
+    assert segments[0]['start'] == 0.09
+    assert segments[0]['end'] == 0.24
+
+def test_token_normalization(matcher):
+    text = "The United States: is a country"
+    tokens = matcher.get_normalized_tokens(text)
+    assert 'united' in tokens
+    assert 'states' in tokens
+    assert 'country' in tokens
+    assert 'the' not in tokens  # stop word should be removed
+
+def test_full_matching(test_files):
+    transcript_path, timings_path = test_files
+    results = match_transcript_with_timings(transcript_path, timings_path)
+    assert len(results) == 3
+    first_match = results[0]
+    assert first_match['start'] == 0.09  # start of "the"
+    assert first_match['end'] == 2.34   # end of "country"
 
 def main():
     parser = argparse.ArgumentParser(description='Match transcript sentences with audio timings')
     parser.add_argument('transcript', help='Path to transcript text file')
     parser.add_argument('timings', help='Path to CSV file with word timings')
-    parser.add_argument('--test', action='store_true', help='Run tests instead of processing files')
     
     args = parser.parse_args()
-    
-    if args.test:
-        run_tests()
-        return
-        
     results = match_transcript_with_timings(args.transcript, args.timings)
     
     # Print results
