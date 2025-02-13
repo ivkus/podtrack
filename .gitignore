@@ -5,3 +5,4 @@ db.*
 *.wav
 *.csv
 vosk-model-en-us-0.22
+out
