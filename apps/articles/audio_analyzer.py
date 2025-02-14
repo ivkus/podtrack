@@ -73,33 +73,45 @@ class WhisperAnalyzer:
     def _segment_into_sentences(self, whisper_segments: List[TranscriptSegment]) -> List[SentenceSegment]:
         """Convert Whisper segments into proper sentences using spaCy"""
         sentences = []
-        current_words = []
-        current_text = ""
-
-        for segment in whisper_segments:
-            current_text += segment.text + " "
-            current_words.extend(segment.words)
-
-        doc = self.nlp(current_text.strip())
+        all_words = []
+        full_text = ""
+        word_mapping = {}  # Map word start positions to Word objects
         
+        # First, collect all words and build the full text
+        for segment in whisper_segments:
+            for word in segment.words:
+                all_words.append(word)
+                # Map the word's start position in the text to the Word object
+                word_mapping[len(full_text)] = word
+                full_text += word.text + " "
+        
+        # Use spaCy for sentence detection
+        doc = self.nlp(full_text.strip())
+        
+        # Process each sentence
         for sent in doc.sents:
             sent_text = sent.text.strip()
-            sent_start_char = sent.start_char
-            sent_end_char = sent.end_char
-            
-            # Find words that belong to this sentence
-            sentence_words = []
-            current_pos = 0
-            
-            for word in current_words:
-                word_len = len(word.text)
-                if current_pos >= sent_start_char and current_pos + word_len <= sent_end_char:
-                    sentence_words.append(word)
-                current_pos += word_len + 1  # +1 for space
+            if not sent_text:  # Skip empty sentences
+                continue
                 
-                if current_pos > sent_end_char:
-                    break
-
+            # Find all words in this sentence span
+            sentence_words = []
+            sent_start = sent.start_char
+            sent_end = sent.end_char
+            
+            # Find the closest word start positions for this sentence
+            relevant_positions = [pos for pos in word_mapping.keys() 
+                                if pos <= sent_end]
+            
+            # Get words that belong to this sentence
+            for pos in relevant_positions:
+                word = word_mapping[pos]
+                word_end_pos = pos + len(word.text)
+                
+                # Check if this word belongs to the current sentence
+                if pos >= sent_start and word_end_pos <= sent_end:
+                    sentence_words.append(word)
+            
             if sentence_words:
                 sentences.append(SentenceSegment(
                     text=sent_text,
@@ -107,7 +119,7 @@ class WhisperAnalyzer:
                     end=sentence_words[-1].end,
                     words=sentence_words
                 ))
-
+        
         return sentences
 
     def analyze_audio(self, audio_path: str, language: str = None) -> Dict:
