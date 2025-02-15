@@ -1,0 +1,9 @@
+Django==5.0
+djangorestframework==3.15.2
+drf_spectacular==0.27.2
+faster_whisper==1.0.3
+huey==2.5.2
+kokoro==0.7.16
+pydub==0.25.1
+soundfile==0.12.1
+spacy==3.8.4
