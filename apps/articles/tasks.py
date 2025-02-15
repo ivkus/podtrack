@@ -1,6 +1,6 @@
 from huey.contrib.djhuey import db_task 
 from .audio_analyzer import WhisperAnalyzer
-from .audio_processor import get_audio_processor
+from .audio_processor import AudioProcessor
 from .models import Article, Sentence, Word
 from apps.vocabulary.models import VocabularyItem
 import logging
@@ -58,8 +58,7 @@ def process_audio_file(article_id: int):
             article.save()
             
             # 使用 WhisperAnalyzer 分析音频
-            analyzer = WhisperAnalyzer(model_name="base")
-            result = analyzer.analyze_audio(article.audio_file.path)
+            result = WhisperAnalyzer.analyze_audio(article.audio_file.path)
 
             # 更新文章内容
             article.content = result["full_text"]
@@ -104,8 +103,7 @@ def process_audio_file(article_id: int):
                 })
 
             # 处理音频
-            audio_processor = get_audio_processor()
-            processed_audio_path = audio_processor.process_article_audio(
+            processed_audio_path = AudioProcessor.process_article_audio(
                 article.audio_file.path,
                 sentences_data
             )

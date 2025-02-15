@@ -34,25 +34,16 @@ class SentenceSegment:
     words: List[Word]
 
 class WhisperAnalyzer:
-    def __init__(self, model_name: str = "base", spacy_model: str = "en_core_web_sm", device: str = "cpu"):
-        """
-        Initialize Whisper analyzer with specified model
-        
-        Args:
-            model_name: Whisper model name ("tiny", "base", "small", "medium", "large-v3")
-            spacy_model: spaCy model name for sentence segmentation
-            device: Device to use for inference ("auto", "cpu", "cuda")
-        """
-        # Initialize faster-whisper model
-        compute_type = "float16" if device != "cpu" else "int8"
-        self.model = WhisperModel(
-            model_name,
-            device=device,
-            compute_type=compute_type
-        )
-        self.nlp = spacy.load(spacy_model)
+    # 类级别变量
+    model = WhisperModel(
+        "base",
+        device="cpu",
+        compute_type="int8"
+    )
+    nlp = spacy.load("en_core_web_sm")
 
-    def _convert_audio(self, audio_path: str) -> str:
+    @classmethod
+    def _convert_audio(cls, audio_path: str) -> str:
         """Convert audio to format compatible with Whisper (WAV, mono, 16kHz)"""
         temp_file = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
         temp_path = temp_file.name
@@ -70,7 +61,8 @@ class WhisperAnalyzer:
                 os.unlink(temp_path)
             raise ValueError(f"Error converting audio file: {str(e)}")
 
-    def _segment_into_sentences(self, whisper_segments: List[TranscriptSegment]) -> List[SentenceSegment]:
+    @classmethod
+    def _segment_into_sentences(cls, whisper_segments: List[TranscriptSegment]) -> List[SentenceSegment]:
         """Convert Whisper segments into proper sentences using spaCy"""
         sentences = []
         all_words = []
@@ -86,7 +78,7 @@ class WhisperAnalyzer:
                 full_text += word.text + " "
         
         # Use spaCy for sentence detection
-        doc = self.nlp(full_text.strip())
+        doc = cls.nlp(full_text.strip())
         
         # Process each sentence
         for sent in doc.sents:
@@ -122,7 +114,8 @@ class WhisperAnalyzer:
         
         return sentences
 
-    def analyze_audio(self, audio_path: str, language: str = None) -> Dict:
+    @classmethod
+    def analyze_audio(cls, audio_path: str, language: str = None) -> Dict:
         """
         Analyze audio file and return full transcript with timed segments
         
@@ -141,10 +134,10 @@ class WhisperAnalyzer:
             
         temp_path = None
         try:
-            temp_path = self._convert_audio(audio_path)
+            temp_path = cls._convert_audio(audio_path)
             
             # Transcribe with faster-whisper
-            segments, info = self.model.transcribe(
+            segments, info = cls.model.transcribe(
                 temp_path,
                 language=language,
                 word_timestamps=True  # Enable word-level timestamps
@@ -175,7 +168,7 @@ class WhisperAnalyzer:
                 full_text += segment.text + " "
             
             # Convert to proper sentences
-            sentences = self._segment_into_sentences(transcript_segments)
+            sentences = cls._segment_into_sentences(transcript_segments)
             
             return {
                 "full_text": full_text.strip(),
@@ -191,19 +184,9 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze audio using Whisper')
     parser.add_argument('input', help='Input audio file path')
     parser.add_argument(
-        '--model', 
-        help='Whisper model name (tiny, base, small, medium, large-v3)',
-        default='base'
-    )
-    parser.add_argument(
         '--language',
         help='Language code (e.g., en, zh, es)',
         default=None
-    )
-    parser.add_argument(
-        '--device',
-        help='Device to use (auto, cpu, cuda)',
-        default='auto'
     )
     parser.add_argument(
         '--output',
@@ -213,8 +196,7 @@ def main():
     args = parser.parse_args()
     
     try:
-        analyzer = WhisperAnalyzer(args.model, device=args.device)
-        result = analyzer.analyze_audio(args.input, args.language)
+        result = WhisperAnalyzer.analyze_audio(args.input, args.language)
         
         output = {
             "full_text": result["full_text"],
