@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 import os
+from huey import SqliteHuey
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
     "corsheaders",
     'django_filters',
     'drf_spectacular',
+    'huey.contrib.djhuey',
 
     "apps.articles",
     "apps.vocabulary",
@@ -98,6 +100,27 @@ DATABASES = {
     }
 }
 
+# Huey Configuration
+HUEY = {
+    'huey_class': 'huey.SqliteHuey',   # 使用 SQLite 后端
+    'name': 'podtrack',                 # 队列名称
+    'filename': str(BASE_DIR / 'huey.db'),  # SQLite 数据库文件路径
+    'results': True,                    # 启用结果存储
+    'store_none': False,                # 不存储 None 结果
+    'immediate': False,                 # 使用异步模式
+    'utc': True,                        # 使用 UTC 时间
+    'consumer': {
+        'workers': 4,                   # 工作线程数
+        'worker_type': 'thread',        # 使用线程
+        'initial_delay': 0.1,           # 启动延迟
+        'backoff': 1.15,                # 重试延迟增长率
+        'max_delay': 10.0,              # 最大重试延迟
+        'scheduler_interval': 1,         # 调度器检查间隔
+        'periodic': True,               # 启用周期性任务
+        'check_worker_health': True,    # 检查工作线程健康
+        'health_check_interval': 1,     # 健康检查间隔
+    },
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

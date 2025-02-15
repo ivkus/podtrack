@@ -1,6 +1,13 @@
 from django.db import models
 
 class Article(models.Model):
+    PROCESSING_STATUS_CHOICES = [
+        ('pending', '等待处理'),
+        ('processing', '处理中'),
+        ('completed', '处理完成'),
+        ('failed', '处理失败'),
+    ]
+
     title = models.CharField(max_length=200)
     text_file = models.FileField(
         upload_to='articles/texts/',
@@ -15,6 +22,11 @@ class Article(models.Model):
     content = models.TextField(blank=True)  # 也设置为可空
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    processing_status = models.CharField(
+        max_length=20,
+        choices=PROCESSING_STATUS_CHOICES,
+        default='pending'
+    )
 
     def __str__(self):
         return self.title

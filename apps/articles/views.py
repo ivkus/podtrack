@@ -15,6 +15,7 @@ import os
 import logging
 import re
 import unicodedata
+from .tasks import process_audio_file
 
 logger = logging.getLogger(__name__)
 
@@ -174,53 +175,21 @@ class ArticleViewSet(viewsets.ModelViewSet):
                     status=400
                 )
 
-            # 先创建文章记录，保存音频文件
+            # 创建文章记录，保存音频文件
             article = Article.objects.create(
                 title=title,
-                audio_file=audio_file
+                audio_file=audio_file,
+                processing_status='processing'
             )
 
-            # 使用 WhisperAnalyzer 分析音频
-            analyzer = WhisperAnalyzer(model_name="base")
-            result = analyzer.analyze_audio(article.audio_file.path)
-
-            # 更新文章内容
-            article.content = result["full_text"]
-            article.save()
-
-            # 保存句子和时间戳信息
-            for idx, sent in enumerate(result["sentences"]):
-                # 创建句子对象
-                sentence = Sentence.objects.create(
-                    article=article,
-                    content=sent.text,
-                    order=idx,
-                    start_time=sent.start,
-                    end_time=sent.end
-                )
-
-                # 过滤并处理单词
-                for word_info in sent.words:
-                    word_text = word_info.text.lower()
-                    should_include, lemma = self._filter_word(word_text)
-                    
-                    if should_include:
-                        # 使用 lemma 创建或获取单词对象
-                        word, created = Word.objects.get_or_create(lemma=lemma)
-                        word.sentences.add(sentence)
-                        word.articles.add(article)
-                        vocab_item, vocab_created = VocabularyItem.objects.get_or_create(word=word)
-                        logger.info(
-                            f"添加词 '{lemma}' 到文章 {article.id} "
-                            f"(新词: {created}, 新词汇项: {vocab_created})"
-                        )
+            # 启动异步处理任务
+            process_audio_file(article.id)
 
             serializer = self.get_serializer(article)
             return Response(serializer.data, status=201)
 
         except Exception as e:
             logger.error(f"创建文章时出错: {str(e)}", exc_info=True)
-            # 如果出错，删除已创建的文章
             if 'article' in locals():
                 article.delete()
             return Response(

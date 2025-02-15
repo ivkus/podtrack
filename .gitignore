@@ -6,3 +6,6 @@ vosk-model-en-us-0.22
 out
 media/
 audio_cache/
+huey.db
+huey.db-shm
+huey.db-wal
