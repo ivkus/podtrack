@@ -1,64 +1,23 @@
 from huey.contrib.djhuey import db_task 
 from .audio_analyzer import WhisperAnalyzer
-from .audio_processor import AudioProcessor
+from .audio_processor import get_audio_processor
 from .models import Article, Sentence, Word
 from apps.vocabulary.models import VocabularyItem
 import logging
-import re
-import unicodedata
 import spacy
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
 class WordProcessor:
-    def __init__(self):
-        self.nlp = spacy.load('en_core_web_sm')
-        self.exclude_pos = {'PRON', 'NUM', 'PROPN', 'SPACE', 'PUNCT', 'SYM', 'X'}
+    nlp = spacy.load('en_core_web_sm')
+    exclude_pos = {'PRON', 'NUM', 'PROPN', 'SPACE', 'PUNCT', 'SYM', 'X'}
 
-    def clean_word(self, word: str) -> str:
-        """清理单词文本，移除不需要的字符"""
-        # 转换为小写
-        word = word.lower()
-        
-        # 标准化 Unicode 字符
-        word = unicodedata.normalize('NFKD', word).encode('ASCII', 'ignore').decode('ASCII')
-        
-        # 移除标点符号和特殊字符，保留连字符和撇号
-        word = re.sub(r'[^\w\s\'-]', '', word)
-        
-        # 处理连字符
-        word = re.sub(r'^-+|-+$', '', word)
-        
-        # 处理撇号
-        word = re.sub(r"'+", "'", word)
-        word = re.sub(r"^'+|'+$", '', word)
-        
-        # 清理空格
-        word = ' '.join(word.split())
-        
-        # 清理标点
-        word = re.sub(r'[.,?!]+$', '', word)
-        word = re.sub(r'^[.,?!]+', '', word)
-        word = word.strip()
-        
-        # 验证单词有效性
-        if (word.startswith('-') or 
-            word.endswith('-') or 
-            word == '-' or 
-            '--' in word):
-            return ''
-        
-        return word
-
-    def filter_word(self, word_text: str) -> tuple[bool, str]:
+    @classmethod
+    def filter_word(cls, word_text: str) -> tuple[bool, str]:
         """检查单词是否应该被包含在词汇表中"""
-        word_text = self.clean_word(word_text)
-        
-        if not word_text:
-            return False, "清理后为空"
-        
-        doc = self.nlp(word_text)
+        # 直接使用 spaCy 处理文本
+        doc = cls.nlp(word_text.strip().lower())
         
         if len(doc) != 1:
             tokens = [f"'{token.text}' ({token.pos_})" for token in doc]
@@ -68,7 +27,7 @@ class WordProcessor:
         
         token = doc[0]
         
-        if token.pos_ in self.exclude_pos:
+        if token.pos_ in cls.exclude_pos:
             reason = f"词性被排除 (POS: {token.pos_})"
             logger.debug(f"过滤掉词: '{word_text}' - {reason}")
             return False, reason
@@ -98,8 +57,6 @@ def process_audio_file(article_id: int):
             article.processing_status = 'processing'
             article.save()
             
-            word_processor = WordProcessor()
-            
             # 使用 WhisperAnalyzer 分析音频
             analyzer = WhisperAnalyzer(model_name="base")
             result = analyzer.analyze_audio(article.audio_file.path)
@@ -124,7 +81,7 @@ def process_audio_file(article_id: int):
                 sentence_words = []
                 for word_info in sent.words:
                     word_text = word_info.text.lower()
-                    should_include, lemma = word_processor.filter_word(word_text)
+                    should_include, lemma = WordProcessor.filter_word(word_text)
                     
                     if should_include:
                         # 创建或获取单词对象
@@ -147,7 +104,7 @@ def process_audio_file(article_id: int):
                 })
 
             # 处理音频
-            audio_processor = AudioProcessor()
+            audio_processor = get_audio_processor()
             processed_audio_path = audio_processor.process_article_audio(
                 article.audio_file.path,
                 sentences_data
