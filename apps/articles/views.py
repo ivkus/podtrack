@@ -10,11 +10,14 @@ from .serializers import (
 from apps.vocabulary.models import VocabularyItem
 from .text_analyzer import PodcastTextAnalyzer
 from .audio_analyzer import WhisperAnalyzer
+import spacy
 import os
 
 class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
+    nlp = spacy.load('en_core_web_sm')
+    exclude_pos = {'PRON', 'NUM', 'PROPN', 'SPACE', 'PUNCT', 'SYM', 'X'}
 
     def get_serializer_class(self):
         # 根据不同的动作使用不同的序列化器
@@ -23,6 +26,20 @@ class ArticleViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             return ArticleDetailSerializer  # 获取单篇文章时使用这个
         return ArticleSerializer
+
+    def _filter_word(self, word_text: str) -> bool:
+        """检查单词是否应该被包含在词汇表中"""
+        doc = self.nlp(word_text)
+        if len(doc) != 1:  # 确保是单个词
+            return False
+        
+        token = doc[0]
+        return (
+            token.pos_ not in self.exclude_pos and 
+            not token.is_stop and
+            token.lemma_.isalpha() and  # 只包含字母
+            len(token.lemma_) > 1  # 排除单字母
+        )
 
     @action(detail=True, methods=['post'])
     def analyze(self, request, pk=None):
@@ -88,14 +105,14 @@ class ArticleViewSet(viewsets.ModelViewSet):
                     end_time=sent.end
                 )
 
-                # 处理句子中的单词
+                # 过滤并处理单词
                 for word_info in sent.words:
-                    word, _ = Word.objects.get_or_create(lemma=word_info.text.lower())
-                    word.sentences.add(sentence)
-                    word.articles.add(article)
-                    
-                    # 创建词汇项（如果不存在）
-                    VocabularyItem.objects.get_or_create(word=word)
+                    word_text = word_info.text.lower()
+                    if self._filter_word(word_text):
+                        word, _ = Word.objects.get_or_create(lemma=word_text)
+                        word.sentences.add(sentence)
+                        word.articles.add(article)
+                        VocabularyItem.objects.get_or_create(word=word)
 
             serializer = self.get_serializer(article)
             return Response(serializer.data, status=201)
