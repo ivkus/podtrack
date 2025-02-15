@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 # 3️⃣ Initalize a pipeline
+import soundfile as sf
 from kokoro import KPipeline
 
-import soundfile as sf
 # 🇺🇸 'a' => American English, 🇬🇧 'b' => British English
 # 🇯🇵 'j' => Japanese: pip install misaki[ja]
 # 🇨🇳 'z' => Mandarin Chinese: pip install misaki[zh]

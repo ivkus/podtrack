@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-from typing import List, Optional
-from pydub import AudioSegment
+import logging
 from pathlib import Path
+from typing import List
+
+from pydub import AudioSegment
+
+from apps.vocabulary.models import VocabularyItem
+
 from .dict_reader import get_dict_reader
 from .tts_service import TTSService
-from apps.vocabulary.models import VocabularyItem
-import logging
 
 logger = logging.getLogger(__name__)
 

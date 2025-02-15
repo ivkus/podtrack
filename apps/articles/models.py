@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
+
 def article_audio_path(instance, filename):
     # 生成上传音频文件的路径
     return f'articles/audio/{timezone.now().strftime("%Y/%m/%d")}/{filename}'

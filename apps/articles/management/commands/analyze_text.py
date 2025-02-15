@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-from django.core.management.base import BaseCommand
-import spacy
-from typing import List, Dict
 import json
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Dict, List
+
+import spacy
+from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
 

@@ -1,23 +1,34 @@
-from huey.contrib.djhuey import db_task 
+import logging
+
+from django.db import transaction
+from huey.contrib.djhuey import db_task
+
+from apps.vocabulary.models import VocabularyItem
+
 from .audio_analyzer import WhisperAnalyzer
 from .audio_processor import AudioProcessor
 from .models import Article, Sentence, Word
-from apps.vocabulary.models import VocabularyItem
-import logging
-import spacy
-from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
 class WordProcessor:
-    nlp = spacy.load('en_core_web_sm')
+    _nlp = None
     exclude_pos = {'PRON', 'NUM', 'PROPN', 'SPACE', 'PUNCT', 'SYM', 'X'}
+
+    @classmethod
+    def _get_nlp(cls):
+        """延迟加载 spaCy 模型"""
+        if cls._nlp is None:
+            import spacy
+            logger.info("加载 spaCy 模型...")
+            cls._nlp = spacy.load('en_core_web_sm')
+        return cls._nlp
 
     @classmethod
     def filter_word(cls, word_text: str) -> tuple[bool, str]:
         """检查单词是否应该被包含在词汇表中"""
-        # 直接使用 spaCy 处理文本
-        doc = cls.nlp(word_text.strip().lower())
+        # 延迟加载并使用 spaCy 处理文本
+        doc = cls._get_nlp()(word_text.strip().lower())
         
         if len(doc) != 1:
             tokens = [f"'{token.text}' ({token.pos_})" for token in doc]

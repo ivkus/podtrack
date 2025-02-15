@@ -1,6 +1,9 @@
 from rest_framework import serializers
-from .models import Article, Sentence, Word
+
 from apps.vocabulary.models import VocabularyItem
+
+from .models import Article, Sentence, Word
+
 
 class WordSerializer(serializers.ModelSerializer):
     class Meta:

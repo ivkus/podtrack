@@ -1,6 +1,9 @@
 from rest_framework import serializers
-from .models import VocabularyItem
+
 from apps.articles.models import Word
+
+from .models import VocabularyItem
+
 
 class WordDetailSerializer(serializers.ModelSerializer):
     article_count = serializers.SerializerMethodField()

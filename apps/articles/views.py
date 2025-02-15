@@ -1,13 +1,12 @@
+import logging
+
 from rest_framework import viewsets
 from rest_framework.response import Response
+
+
 from .models import Article
-from .serializers import (
-    ArticleSerializer, 
-    ArticleDetailSerializer,  # 导入包含sentences的序列化器
-)
-from apps.vocabulary.models import VocabularyItem
-import spacy
-import logging
+from .serializers import ArticleDetailSerializer  # 导入包含sentences的序列化器
+from .serializers import ArticleSerializer
 from .tasks import process_audio_file
 
 logger = logging.getLogger(__name__)
@@ -15,8 +14,6 @@ logger = logging.getLogger(__name__)
 class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
-    nlp = spacy.load('en_core_web_sm')
-    exclude_pos = {'PRON', 'NUM', 'PROPN', 'SPACE', 'PUNCT', 'SYM', 'X'}
 
     def get_serializer_class(self):
         # 根据不同的动作使用不同的序列化器

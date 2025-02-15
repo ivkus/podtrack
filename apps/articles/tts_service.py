@@ -1,18 +1,37 @@
 #!/usr/bin/env python3
 
-from kokoro import KPipeline
-import soundfile as sf
-from pathlib import Path
 import hashlib
 import logging
+from pathlib import Path
+from typing import Optional, ClassVar
+
+import soundfile as sf
 
 logger = logging.getLogger(__name__)
 
 class TTSService:
     # 类级别的变量
-    zh_pipeline = KPipeline(lang_code='z')  # 中文
-    en_pipeline = KPipeline(lang_code='a')  # 英文（美式）
+    _zh_pipeline: ClassVar[Optional['KPipeline']] = None
+    _en_pipeline: ClassVar[Optional['KPipeline']] = None
     sample_rate = 24000
+    
+    @classmethod
+    def _get_zh_pipeline(cls) -> 'KPipeline':
+        """延迟初始化中文 pipeline"""
+        if cls._zh_pipeline is None:
+            from kokoro import KPipeline
+            logger.info("初始化中文 TTS pipeline...")
+            cls._zh_pipeline = KPipeline(lang_code='z')
+        return cls._zh_pipeline
+    
+    @classmethod
+    def _get_en_pipeline(cls) -> 'KPipeline':
+        """延迟初始化英文 pipeline"""
+        if cls._en_pipeline is None:
+            from kokoro import KPipeline
+            logger.info("初始化英文 TTS pipeline...")
+            cls._en_pipeline = KPipeline(lang_code='a')
+        return cls._en_pipeline
     
     @classmethod
     def _get_cache_path(cls, text: str, lang: str, cache_dir: Path) -> Path:
@@ -41,7 +60,7 @@ class TTSService:
             
         try:
             # 选择合适的 pipeline
-            pipeline = cls.zh_pipeline if lang == 'zh' else cls.en_pipeline
+            pipeline = cls._get_zh_pipeline() if lang == 'zh' else cls._get_en_pipeline()
             voice = 'af_heart' if lang == 'zh' else 'af_heart'  # 可以根据需要更改声音
             
             # 生成音频
@@ -55,7 +74,3 @@ class TTSService:
         except Exception as e:
             logger.error(f"生成音频出错: {str(e)}")
             return ""
-
-def get_tts_service() -> TTSService:
-    """获取 TTS 服务单例"""
-    return TTSService() 

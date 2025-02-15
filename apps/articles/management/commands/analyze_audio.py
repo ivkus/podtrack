@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-from django.core.management.base import BaseCommand
-from ...audio_analyzer import WhisperAnalyzer
-from dataclasses import asdict
 import json
-from pathlib import Path
 import logging
+from dataclasses import asdict
+from pathlib import Path
+
+from django.core.management.base import BaseCommand
+
+from ...audio_analyzer import WhisperAnalyzer
 
 logger = logging.getLogger(__name__)
 

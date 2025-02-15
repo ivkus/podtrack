@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # apps/articles/dict_parser.py
 
+import json
+import logging
 import os
 import sqlite3
-import json
-import argparse
-import sys
-from typing import Dict, Optional, List, Tuple, Sequence, Any, Union
-import logging
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -277,65 +276,6 @@ def format_definition(word_info: Dict[str, Any]) -> str:
         parts.append(f"词性: {word_info['pos']}")
         
     return '\n'.join(parts)
-
-def main():
-    """命令行入口函数"""
-    parser = argparse.ArgumentParser(description='StarDict词典查询工具')
-    parser.add_argument('db_file', help='StarDict SQLite数据库文件路径')
-    parser.add_argument('word', help='要查询的单词')
-    parser.add_argument('-m', '--match', action='store_true', 
-                      help='使用前缀匹配模式')
-    parser.add_argument('-l', '--limit', type=int, default=10,
-                      help='匹配模式下的结果数量限制(默认: 10)')
-    parser.add_argument('-s', '--strip', action='store_true',
-                      help='使用stripword模式匹配')
-    
-    args = parser.parse_args()
-    
-    # 检查数据库文件是否存在
-    if not os.path.exists(args.db_file):
-        print(f"错误: 数据库文件 '{args.db_file}' 不存在", file=sys.stderr)
-        return 1
-        
-    try:
-        reader = DictReader(args.db_file)
-        
-        if args.match:
-            # 匹配模式
-            matches = reader.match(args.word, args.limit, args.strip)
-            if matches:
-                print(f"\n找到 {len(matches)} 个匹配:")
-                for idx, (id_, word) in enumerate(matches, 1):
-                    info = reader.query(id_)
-                    if info:
-                        print(f"\n{idx}. {word}")
-                        print(format_definition(info))
-            else:
-                print("未找到匹配的单词")
-        else:
-            # 精确查询模式
-            info = reader.query(args.word)
-            if info:
-                print(f"\n单词: {info['word']}")
-                print(format_definition(info))
-            else:
-                print(f"未找到单词 '{args.word}'")
-                
-            # 显示一些相关单词
-            matches = reader.match(args.word, 5)
-            if matches and matches[0][1].lower() != args.word.lower():
-                print("\n您要找的是不是:")
-                for _, word in matches[:5]:
-                    print(f"  {word}")
-                    
-    except Exception as e:
-        print(f"错误: {e}", file=sys.stderr)
-        return 1
-        
-    return 0
-
-if __name__ == '__main__':
-    sys.exit(main())
 
 def get_dict_reader(verbose: bool = False) -> DictReader:
     """提供DictReader实例的接口

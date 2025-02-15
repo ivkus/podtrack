@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
-from faster_whisper import WhisperModel
-from typing import List, Dict, Optional
-from dataclasses import dataclass
-import tempfile
-from pydub import AudioSegment
-import os
 import logging
-import spacy
-from dataclasses import asdict
+import os
+import tempfile
+from dataclasses import dataclass
+from typing import Dict, List, Optional, ClassVar
+
+from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +33,30 @@ class SentenceSegment:
 
 class WhisperAnalyzer:
     # 类级别变量
-    model = WhisperModel(
-        "base",
-        device="cpu",
-        compute_type="int8"
-    )
-    nlp = spacy.load("en_core_web_sm")
+    _model: ClassVar[Optional['WhisperModel']] = None
+    _nlp: ClassVar[Optional['Language']] = None
+
+    @classmethod
+    def _get_model(cls) -> 'WhisperModel':
+        """延迟加载 Whisper 模型"""
+        if cls._model is None:
+            from faster_whisper import WhisperModel
+            logger.info("加载 Whisper 模型...")
+            cls._model = WhisperModel(
+                "base",
+                device="cpu",
+                compute_type="int8"
+            )
+        return cls._model
+
+    @classmethod
+    def _get_nlp(cls) -> 'Language':
+        """延迟加载 spaCy 模型"""
+        if cls._nlp is None:
+            import spacy
+            logger.info("加载 spaCy 模型...")
+            cls._nlp = spacy.load("en_core_web_sm")
+        return cls._nlp
 
     @classmethod
     def _convert_audio(cls, audio_path: str) -> str:
@@ -78,7 +94,7 @@ class WhisperAnalyzer:
                 full_text += word.text + " "
         
         # Use spaCy for sentence detection
-        doc = cls.nlp(full_text.strip())
+        doc = cls._get_nlp()(full_text.strip())
         
         # Process each sentence
         for sent in doc.sents:
@@ -137,7 +153,7 @@ class WhisperAnalyzer:
             temp_path = cls._convert_audio(audio_path)
             
             # Transcribe with faster-whisper
-            segments, info = cls.model.transcribe(
+            segments, info = cls._get_model().transcribe(
                 temp_path,
                 language=language,
                 word_timestamps=True  # Enable word-level timestamps

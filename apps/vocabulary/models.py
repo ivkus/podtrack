@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class VocabularyItem(models.Model):
     word = models.ForeignKey('articles.Word', on_delete=models.CASCADE)
     mastered = models.BooleanField(default=False)
