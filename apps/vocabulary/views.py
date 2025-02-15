@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -23,4 +23,16 @@ class VocabularyViewSet(viewsets.ModelViewSet):
         item = self.get_object()
         item.ignored = not item.ignored
         item.save()
+        return Response({'status': 'success'})
+
+    @action(detail=False, methods=['post'])
+    def bulk_delete(self, request):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response(
+                {'error': 'No IDs provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        VocabularyItem.objects.filter(id__in=ids).delete()
         return Response({'status': 'success'})
