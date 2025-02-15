@@ -2,6 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Q
 from .models import VocabularyItem
 from .serializers import VocabularyItemSerializer
 
@@ -10,6 +11,17 @@ class VocabularyViewSet(viewsets.ModelViewSet):
     serializer_class = VocabularyItemSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['mastered', 'ignored']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search', None)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(word__lemma__icontains=search)
+            )
+        
+        return queryset.select_related('word')
 
     @action(detail=True, methods=['post'])
     def toggle_mastered(self, request, pk=None):

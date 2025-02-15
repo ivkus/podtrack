@@ -28,9 +28,13 @@ class PodcastTextAnalyzer:
         analyzed_sentences = []
         
         for sent in doc.sents:
-            # Get lemmatized words excluding unwanted POS
+            # Get lemmatized words with their POS tags
             words = [
-                token.lemma_.lower()
+                {
+                    'text': token.text,
+                    'lemma': token.lemma_.lower(),
+                    'pos': token.pos_
+                }
                 for token in sent
                 if (token.pos_ not in self.exclude_pos and 
                     not token.is_stop and
@@ -39,7 +43,12 @@ class PodcastTextAnalyzer:
             ]
             
             # Remove duplicates while preserving order
-            unique_words = list(dict.fromkeys(words))
+            seen = set()
+            unique_words = []
+            for word in words:
+                if word['lemma'] not in seen:
+                    seen.add(word['lemma'])
+                    unique_words.append(word)
             
             analyzed_sentences.append({
                 'text': sent.text.strip(),
@@ -50,12 +59,7 @@ class PodcastTextAnalyzer:
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze podcast text')
-    parser.add_argument('input', help='Input text or file path')
-    parser.add_argument(
-        '--is-file', 
-        action='store_true',
-        help='Treat input as file path'
-    )
+    parser.add_argument('input', help='Input file path')
     parser.add_argument(
         '--output',
         help='Output JSON file path (optional)'
@@ -64,17 +68,14 @@ def main():
     args = parser.parse_args()
     
     try:
-        # Read input text
-        if args.is_file:
-            try:
-                with open(args.input, 'r', encoding='utf-8') as f:
-                    text = f.read()
-            except UnicodeDecodeError:
-                # Try different encoding if UTF-8 fails
-                with open(args.input, 'r', encoding='latin-1') as f:
-                    text = f.read()
-        else:
-            text = args.input
+        # Read input file
+        try:
+            with open(args.input, 'r', encoding='utf-8') as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            # Try different encoding if UTF-8 fails
+            with open(args.input, 'r', encoding='latin-1') as f:
+                text = f.read()
             
         # Analyze text
         analyzer = PodcastTextAnalyzer()

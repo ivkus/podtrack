@@ -30,6 +30,15 @@ class SentenceSerializer(serializers.ModelSerializer):
         return WordSerializer(filtered_words, many=True).data
 
 
+class SentenceReaderSerializer(serializers.ModelSerializer):
+    # Include all words for reading
+    words = WordSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Sentence
+        fields = ['id', 'content', 'order', 'start_time', 'end_time', 'words']
+
+
 class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
@@ -37,7 +46,7 @@ class ArticleSerializer(serializers.ModelSerializer):
 
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
-    sentences = SentenceSerializer(many=True, read_only=True)
+    sentences = SentenceReaderSerializer(many=True, read_only=True)
 
     class Meta:
         model = Article
