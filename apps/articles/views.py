@@ -63,6 +63,25 @@ class ArticleViewSet(viewsets.ModelViewSet):
         # 去除首尾空格，将多个空格替换为单个空格
         word = ' '.join(word.split())
         
+        # 去除末尾的标点符号（包括点号、逗号、问号等）
+        word = re.sub(r'[.,?!]+$', '', word)
+        
+        # 去除开头的标点符号
+        word = re.sub(r'^[.,?!]+', '', word)
+        
+        # 再次去除首尾空格（以防前面的处理产生了新的空格）
+        word = word.strip()
+        
+        # 检查是否是有效的单词形式
+        # 1. 不能以连字符开头或结尾
+        # 2. 不能只包含连字符
+        # 3. 不能包含多个连续的连字符
+        if (word.startswith('-') or 
+            word.endswith('-') or 
+            word == '-' or 
+            '--' in word):
+            return ''
+        
         return word
 
     def _filter_word(self, word_text: str) -> tuple[bool, str]:
@@ -105,20 +124,15 @@ class ArticleViewSet(viewsets.ModelViewSet):
             logger.debug(f"过滤掉词: '{word_text}' - {reason}")
             return False, reason
         
-        # 检查是否只包含字母
-        if not token.lemma_.isalpha():
-            reason = "包含非字母字符"
-            logger.debug(f"过滤掉词: '{word_text}' - {reason}")
-            return False, reason
-        
         # 检查长度
         if len(token.lemma_) <= 1:
             reason = f"词太短 (length: {len(token.lemma_)})"
             logger.debug(f"过滤掉词: '{word_text}' - {reason}")
             return False, reason
         
+        # 使用 token 的 lemma 作为最终的单词形式
         logger.debug(f"接受词: '{word_text}' (lemma: {token.lemma_}, POS: {token.pos_})")
-        return True, "accepted"
+        return True, token.lemma_  # 返回 token 的 lemma 作为有效单词
 
     @action(detail=True, methods=['post'])
     def analyze(self, request, pk=None):
@@ -176,9 +190,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
 
             # 保存句子和时间戳信息
             for idx, sent in enumerate(result["sentences"]):
-                print(f"Processing sentence {idx}: {sent.text}")
-                print(f"Time: {sent.start}s - {sent.end}s")
-                
+                # 创建句子对象
                 sentence = Sentence.objects.create(
                     article=article,
                     content=sent.text,
@@ -186,32 +198,22 @@ class ArticleViewSet(viewsets.ModelViewSet):
                     start_time=sent.start,
                     end_time=sent.end
                 )
-                print(f"Created sentence object with id {sentence.id}")
 
                 # 过滤并处理单词
-                print(f"Processing words for sentence {idx}:")
                 for word_info in sent.words:
                     word_text = word_info.text.lower()
-                    print(f"  - Checking word: {word_text}")
-                    should_include, reason = self._filter_word(word_text)
+                    should_include, lemma = self._filter_word(word_text)
                     
                     if should_include:
-                        word, created = Word.objects.get_or_create(lemma=word_text)
-                        print(f"    - {'Created' if created else 'Found'} word object with lemma: {word_text}")
+                        # 使用 lemma 创建或获取单词对象
+                        word, created = Word.objects.get_or_create(lemma=lemma)
                         word.sentences.add(sentence)
                         word.articles.add(article)
                         vocab_item, vocab_created = VocabularyItem.objects.get_or_create(word=word)
-                        print(f"    - {'Created' if vocab_created else 'Found'} vocabulary item")
                         logger.info(
-                            f"添加词 '{word_text}' 到文章 {article.id} "
+                            f"添加词 '{lemma}' 到文章 {article.id} "
                             f"(新词: {created}, 新词汇项: {vocab_created})"
                         )
-                    else:
-                        print(f"    - Word filtered out: {word_text} - {reason}")
-                        logger.debug(
-                            f"在文章 {article.id} 中跳过词 '{word_text}' - {reason}"
-                        )
-                print("---")
 
             serializer = self.get_serializer(article)
             return Response(serializer.data, status=201)
