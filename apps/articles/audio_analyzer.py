@@ -6,11 +6,11 @@ from dataclasses import dataclass
 import tempfile
 from pydub import AudioSegment
 import os
-import json
-import argparse
-import sys
+import logging
 import spacy
 from dataclasses import asdict
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Word:
@@ -178,42 +178,4 @@ class WhisperAnalyzer:
             
         finally:
             if temp_path and os.path.exists(temp_path):
-                os.unlink(temp_path)
-
-def main():
-    parser = argparse.ArgumentParser(description='Analyze audio using Whisper')
-    parser.add_argument('input', help='Input audio file path')
-    parser.add_argument(
-        '--language',
-        help='Language code (e.g., en, zh, es)',
-        default=None
-    )
-    parser.add_argument(
-        '--output',
-        help='Output JSON file path (optional)'
-    )
-    
-    args = parser.parse_args()
-    
-    try:
-        result = WhisperAnalyzer.analyze_audio(args.input, args.language)
-        
-        output = {
-            "full_text": result["full_text"],
-            "segments": [asdict(segment) for segment in result["segments"]],
-            "sentences": [asdict(sentence) for sentence in result["sentences"]]
-        }
-        
-        if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                json.dump(output, f, ensure_ascii=False, indent=2)
-            print(f"Results saved to: {args.output}")
-        else:
-            print(json.dumps(output, ensure_ascii=False, indent=2))
-            
-    except Exception as e:
-        print(f"Error: {str(e)}", file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main() 
+                os.unlink(temp_path) 
