@@ -7,8 +7,6 @@ import logging
 import re
 import unicodedata
 import spacy
-import asyncio
-from asgiref.sync import sync_to_async
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
@@ -150,19 +148,10 @@ def process_audio_file(article_id: int):
 
             # 处理音频
             audio_processor = AudioProcessor()
-            
-            # 创建新的事件循环来运行异步代码
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                processed_audio_path = loop.run_until_complete(
-                    audio_processor.process_article_audio(
-                        article.audio_file.path,
-                        sentences_data
-                    )
-                )
-            finally:
-                loop.close()
+            processed_audio_path = audio_processor.process_article_audio(
+                article.audio_file.path,
+                sentences_data
+            )
             
             # 更新文章的处理后音频路径
             article.processed_audio_file = processed_audio_path

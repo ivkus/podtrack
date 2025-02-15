@@ -8,7 +8,7 @@ import argparse
 import sys
 from typing import Dict, Optional, List, Tuple, Sequence, Any, Union
 import logging
-import settings
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 

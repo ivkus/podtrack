@@ -1,13 +1,14 @@
-#！/usr/bin/env python3
+#!/usr/bin/env python3
 
 # translation_service.py
 
-import os
 from typing import Tuple
-from gtts import gTTS
-import hashlib
 from pathlib import Path
 from .dict_reader import get_dict_reader
+from .tts_service import get_tts_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class TranslationService:
     def __init__(self, audio_dir: str = "audio_cache"):
@@ -20,12 +21,7 @@ class TranslationService:
         self.audio_dir = Path(audio_dir)
         self.audio_dir.mkdir(exist_ok=True)
         self.dict_reader = get_dict_reader()
-        
-    def _get_cache_path(self, text: str, lang: str) -> Path:
-        """Get the cached audio file path for a given text."""
-        # Create a unique filename based on the text and language
-        filename = hashlib.md5(f"{text}_{lang}".encode()).hexdigest() + ".mp3"
-        return self.audio_dir / filename
+        self.tts_service = get_tts_service()
 
     def translate_word(self, word: str) -> str:
         """
@@ -43,34 +39,21 @@ class TranslationService:
                 return word_info['translation']
             return ""
         except Exception as e:
-            print(f"Translation error: {e}")
+            logger.error(f"翻译出错: {str(e)}")
             return ""
 
-    def generate_audio(self, text: str, lang: str = 'zh-CN') -> str:
+    def generate_audio(self, text: str, lang: str = 'zh') -> str:
         """
         Generate audio file for the given text.
         
         Args:
             text: Text to convert to speech
-            lang: Language code for TTS
+            lang: Language code ('en' or 'zh')
             
         Returns:
             Path to the generated audio file
         """
-        cache_path = self._get_cache_path(text, lang)
-        
-        # Return cached file if exists
-        if cache_path.exists():
-            return str(cache_path)
-            
-        try:
-            # Generate new audio file
-            tts = gTTS(text=text, lang=lang)
-            tts.save(str(cache_path))
-            return str(cache_path)
-        except Exception as e:
-            print(f"Audio generation error: {e}")
-            return ""
+        return self.tts_service.generate_audio(text, lang, self.audio_dir)
 
     def process_word(self, word: str) -> Tuple[str, str]:
         """
@@ -88,22 +71,22 @@ class TranslationService:
             return "", ""
             
         # Generate audio
-        audio_path = self.generate_audio(translation)
+        audio_path = self.generate_audio(translation, 'zh')
         return translation, audio_path
 
-async def main():
+def main():
     """Example usage of the TranslationService."""
     service = TranslationService()
     
     # Example words
-    words = ["hello", "world", "computer"]
+    words = ["hello 世界", "world", "你好"]
     
     for word in words:
-        translation, audio_path = await service.process_word(word)
+        translation, audio_path = service.process_word(word)
         print(f"Word: {word}")
         print(f"Translation: {translation}")
         print(f"Audio file: {audio_path}")
         print("---")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

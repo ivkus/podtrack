@@ -8,9 +8,7 @@ import tempfile
 from .audio_analyzer import WhisperAnalyzer
 from .word_translator import TranslationService
 from apps.vocabulary.models import VocabularyItem
-import asyncio
 import logging
-from asgiref.sync import sync_to_async
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +23,16 @@ class AudioProcessor:
         self.word_gap = word_gap
         self.sentence_gap = sentence_gap
         
-    @sync_to_async
     def _check_word_status(self, word: str) -> bool:
         """检查单词是否需要解释（未掌握且未忽略）"""
         vocab_item = VocabularyItem.objects.filter(word__lemma=word).first()
         return not vocab_item or (not vocab_item.mastered and not vocab_item.ignored)
         
-    async def process_sentence(self, 
-                             audio_file: str,
-                             start_time: float,
-                             end_time: float,
-                             words: List[str]) -> AudioSegment:
+    def process_sentence(self, 
+                        audio_file: str,
+                        start_time: float,
+                        end_time: float,
+                        words: List[str]) -> AudioSegment:
         """处理单个句子，添加单词解释"""
         # 加载原始音频
         original_audio = AudioSegment.from_file(audio_file)
@@ -55,9 +52,9 @@ class AudioProcessor:
         # 处理每个单词
         for word in words:
             # 检查单词状态
-            if await self._check_word_status(word):
+            if self._check_word_status(word):
                 # 获取单词翻译和音频
-                translation, trans_audio_path = await self.translator.process_word(word)
+                translation, trans_audio_path = self.translator.process_word(word)
                 if translation and trans_audio_path:
                     # 添加英文单词发音
                     word_audio_path = self.translator.generate_audio(word, 'en')
@@ -73,16 +70,16 @@ class AudioProcessor:
         
         return final_audio
     
-    async def process_article_audio(self, 
-                                  article_audio_path: str,
-                                  sentences_data: List[dict]) -> str:
+    def process_article_audio(self, 
+                            article_audio_path: str,
+                            sentences_data: List[dict]) -> str:
         """处理整篇文章的音频"""
         final_audio = AudioSegment.empty()
         sentence_silence = AudioSegment.silent(duration=self.sentence_gap)
         
         for sentence_data in sentences_data:
             # 处理每个句子
-            sentence_audio = await self.process_sentence(
+            sentence_audio = self.process_sentence(
                 audio_file=article_audio_path,
                 start_time=sentence_data['start_time'],
                 end_time=sentence_data['end_time'],
