@@ -1,11 +1,15 @@
 from huey.contrib.djhuey import db_task 
 from .audio_analyzer import WhisperAnalyzer
+from .audio_processor import AudioProcessor
 from .models import Article, Sentence, Word
 from apps.vocabulary.models import VocabularyItem
 import logging
 import re
 import unicodedata
 import spacy
+import asyncio
+from asgiref.sync import sync_to_async
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -89,48 +93,81 @@ def process_audio_file(article_id: int):
     """处理文章的音频文件"""
     try:
         logger.info(f"开始处理文章 {article_id}")
-        article = Article.objects.get(id=article_id)
-        word_processor = WordProcessor()
         
-        # 使用 WhisperAnalyzer 分析音频
-        analyzer = WhisperAnalyzer(model_name="base")
-        result = analyzer.analyze_audio(article.audio_file.path)
+        # 使用事务来确保数据一致性
+        with transaction.atomic():
+            article = Article.objects.get(id=article_id)
+            article.processing_status = 'processing'
+            article.save()
+            
+            word_processor = WordProcessor()
+            
+            # 使用 WhisperAnalyzer 分析音频
+            analyzer = WhisperAnalyzer(model_name="base")
+            result = analyzer.analyze_audio(article.audio_file.path)
 
-        # 更新文章内容
-        article.content = result["full_text"]
-        article.save()
+            # 更新文章内容
+            article.content = result["full_text"]
+            article.save()
 
-        # 保存句子和时间戳信息
-        for idx, sent in enumerate(result["sentences"]):
-            # 创建句子对象
-            sentence = Sentence.objects.create(
-                article=article,
-                content=sent.text,
-                order=idx,
-                start_time=sent.start,
-                end_time=sent.end
-            )
+            # 保存句子和时间戳信息
+            sentences_data = []
+            for idx, sent in enumerate(result["sentences"]):
+                # 创建句子对象
+                sentence = Sentence.objects.create(
+                    article=article,
+                    content=sent.text,
+                    order=idx,
+                    start_time=sent.start,
+                    end_time=sent.end
+                )
 
-            # 处理单词
-            for word_info in sent.words:
-                word_text = word_info.text.lower()
-                should_include, lemma = word_processor.filter_word(word_text)
-                
-                if should_include:
-                    # 创建或获取单词对象
-                    word, created = Word.objects.get_or_create(lemma=lemma)
-                    word.sentences.add(sentence)
-                    word.articles.add(article)
+                # 处理单词
+                sentence_words = []
+                for word_info in sent.words:
+                    word_text = word_info.text.lower()
+                    should_include, lemma = word_processor.filter_word(word_text)
                     
-                    vocab_item, vocab_created = VocabularyItem.objects.get_or_create(word=word)
-                    logger.info(
-                        f"添加词 '{lemma}' 到文章 {article.id} "
-                        f"(新词: {created}, 新词汇项: {vocab_created})"
-                    )
+                    if should_include:
+                        # 创建或获取单词对象
+                        word, created = Word.objects.get_or_create(lemma=lemma)
+                        word.sentences.add(sentence)
+                        word.articles.add(article)
+                        sentence_words.append(lemma)
+                        
+                        vocab_item, vocab_created = VocabularyItem.objects.get_or_create(word=word)
+                        logger.info(
+                            f"添加词 '{lemma}' 到文章 {article.id} "
+                            f"(新词: {created}, 新词汇项: {vocab_created})"
+                        )
+                
+                # 收集句子数据用于音频处理
+                sentences_data.append({
+                    'start_time': sent.start,
+                    'end_time': sent.end,
+                    'words': sentence_words
+                })
 
-        # 更新文章状态
-        article.processing_status = 'completed'
-        article.save()
+            # 处理音频
+            audio_processor = AudioProcessor()
+            
+            # 创建新的事件循环来运行异步代码
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                processed_audio_path = loop.run_until_complete(
+                    audio_processor.process_article_audio(
+                        article.audio_file.path,
+                        sentences_data
+                    )
+                )
+            finally:
+                loop.close()
+            
+            # 更新文章的处理后音频路径
+            article.processed_audio_file = processed_audio_path
+            article.processing_status = 'completed'
+            article.save()
 
     except Exception as e:
         logger.error(f"处理音频文件时出错: {str(e)}", exc_info=True)

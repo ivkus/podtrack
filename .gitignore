@@ -9,3 +9,4 @@ audio_cache/
 huey.db
 huey.db-shm
 huey.db-wal
+data/stardict.db

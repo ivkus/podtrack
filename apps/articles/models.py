@@ -1,4 +1,13 @@
 from django.db import models
+from django.utils import timezone
+
+def article_audio_path(instance, filename):
+    # 生成上传音频文件的路径
+    return f'articles/audio/{timezone.now().strftime("%Y/%m/%d")}/{filename}'
+
+def processed_audio_path(instance, filename):
+    # 生成处理后音频文件的路径
+    return f'articles/processed_audio/{timezone.now().strftime("%Y/%m/%d")}/{filename}'
 
 class Article(models.Model):
     PROCESSING_STATUS_CHOICES = [
@@ -14,11 +23,8 @@ class Article(models.Model):
         null=True,
         blank=True
     )
-    audio_file = models.FileField(
-        upload_to='articles/audio/',
-        null=True,
-        blank=True
-    )
+    audio_file = models.FileField(upload_to=article_audio_path)
+    processed_audio_file = models.FileField(upload_to=processed_audio_path, blank=True, null=True)
     content = models.TextField(blank=True)  # 也设置为可空
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

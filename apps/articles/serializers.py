@@ -60,12 +60,14 @@ class ArticleAnalysisSerializer(serializers.ModelSerializer):
     sentences = SentenceSerializer(many=True, read_only=True)
     total_words = serializers.SerializerMethodField()
     new_words = serializers.SerializerMethodField()
+    processed_audio_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Article
         fields = [
             'id', 'title', 'content', 'created_at', 
-            'updated_at', 'sentences', 'total_words', 'new_words'
+            'updated_at', 'sentences', 'total_words', 
+            'new_words', 'processed_audio_url'
         ]
 
     def get_total_words(self, obj):
@@ -78,3 +80,8 @@ class ArticleAnalysisSerializer(serializers.ModelSerializer):
             if not vocab_item or (not vocab_item.mastered and not vocab_item.ignored):
                 new_words.append(word)
         return WordSerializer(new_words, many=True).data
+
+    def get_processed_audio_url(self, obj):
+        if obj.processed_audio_file:
+            return obj.processed_audio_file.url
+        return None
