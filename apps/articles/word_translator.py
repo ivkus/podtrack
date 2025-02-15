@@ -4,14 +4,10 @@
 
 import os
 from typing import Tuple
-from mtranslate import translate
 from gtts import gTTS
 import hashlib
-import asyncio
-import aiohttp
-import json
 from pathlib import Path
-from asgiref.sync import sync_to_async
+from .dict_reader import get_dict_reader
 
 class TranslationService:
     def __init__(self, audio_dir: str = "audio_cache"):
@@ -23,6 +19,7 @@ class TranslationService:
         """
         self.audio_dir = Path(audio_dir)
         self.audio_dir.mkdir(exist_ok=True)
+        self.dict_reader = get_dict_reader()
         
     def _get_cache_path(self, text: str, lang: str) -> Path:
         """Get the cached audio file path for a given text."""
@@ -30,14 +27,9 @@ class TranslationService:
         filename = hashlib.md5(f"{text}_{lang}".encode()).hexdigest() + ".mp3"
         return self.audio_dir / filename
 
-    @sync_to_async
-    def _translate_sync(self, word: str) -> str:
-        """同步翻译函数的包装器"""
-        return translate(word, 'zh-CN')
-
-    async def translate_word(self, word: str) -> str:
+    def translate_word(self, word: str) -> str:
         """
-        Translate an English word to Chinese using async HTTP request.
+        Translate an English word to Chinese using the dictionary.
         
         Args:
             word: English word to translate
@@ -46,15 +38,25 @@ class TranslationService:
             Chinese translation of the word
         """
         try:
-            translation = await self._translate_sync(word)
-            return translation
+            word_info = self.dict_reader.query(word)
+            if word_info and word_info.get('translation'):
+                return word_info['translation']
+            return ""
         except Exception as e:
             print(f"Translation error: {e}")
             return ""
 
-    @sync_to_async
-    def _generate_audio_sync(self, text: str, lang: str) -> str:
-        """同步生成音频的包装器"""
+    def generate_audio(self, text: str, lang: str = 'zh-CN') -> str:
+        """
+        Generate audio file for the given text.
+        
+        Args:
+            text: Text to convert to speech
+            lang: Language code for TTS
+            
+        Returns:
+            Path to the generated audio file
+        """
         cache_path = self._get_cache_path(text, lang)
         
         # Return cached file if exists
@@ -70,20 +72,7 @@ class TranslationService:
             print(f"Audio generation error: {e}")
             return ""
 
-    async def generate_audio(self, text: str, lang: str = 'zh-CN') -> str:
-        """
-        Generate audio file for the given text.
-        
-        Args:
-            text: Text to convert to speech
-            lang: Language code for TTS
-            
-        Returns:
-            Path to the generated audio file
-        """
-        return await self._generate_audio_sync(text, lang)
-
-    async def process_word(self, word: str) -> Tuple[str, str]:
+    def process_word(self, word: str) -> Tuple[str, str]:
         """
         Process a word: translate it and generate audio for the translation.
         
@@ -94,12 +83,12 @@ class TranslationService:
             Tuple of (translation, audio_file_path)
         """
         # Get translation
-        translation = await self.translate_word(word)
+        translation = self.translate_word(word)
         if not translation:
             return "", ""
             
         # Generate audio
-        audio_path = await self.generate_audio(translation)
+        audio_path = self.generate_audio(translation)
         return translation, audio_path
 
 async def main():
