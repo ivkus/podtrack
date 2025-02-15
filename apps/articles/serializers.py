@@ -50,7 +50,7 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Article
-        fields = ['id', 'title', 'content', 'created_at', 'updated_at', 'sentences']
+        fields = ['id', 'title', 'content', 'audio_file', 'created_at', 'updated_at', 'sentences']
 
 
 class ArticleAnalysisSerializer(serializers.ModelSerializer):
