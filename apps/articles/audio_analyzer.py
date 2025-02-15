@@ -34,7 +34,7 @@ class SentenceSegment:
     words: List[Word]
 
 class WhisperAnalyzer:
-    def __init__(self, model_name: str = "base", spacy_model: str = "en_core_web_sm", device: str = "auto"):
+    def __init__(self, model_name: str = "base", spacy_model: str = "en_core_web_sm", device: str = "cpu"):
         """
         Initialize Whisper analyzer with specified model
         

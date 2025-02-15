@@ -23,6 +23,8 @@ class Sentence(models.Model):
     article = models.ForeignKey(Article, related_name='sentences', on_delete=models.CASCADE)
     content = models.TextField()
     order = models.IntegerField()  # Sentence order in the article
+    start_time = models.FloatField(null=True)  # 句子开始时间（秒）
+    end_time = models.FloatField(null=True)    # 句子结束时间（秒）
     
     class Meta:
         ordering = ['order']

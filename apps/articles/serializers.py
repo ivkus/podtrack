@@ -14,7 +14,7 @@ class SentenceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Sentence
-        fields = ['id', 'content', 'order', 'words']
+        fields = ['id', 'content', 'order', 'start_time', 'end_time', 'words']
 
     def get_words(self, obj):
         # Get all words for this sentence

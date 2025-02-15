@@ -9,7 +9,8 @@ from .serializers import (
 )
 from apps.vocabulary.models import VocabularyItem
 from .text_analyzer import PodcastTextAnalyzer
-import chardet
+from .audio_analyzer import WhisperAnalyzer
+import os
 
 class ArticleViewSet(viewsets.ModelViewSet):
     queryset = Article.objects.all()
@@ -55,33 +56,54 @@ class ArticleViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         try:
             title = request.data.get('title')
-            text_file = request.FILES.get('textFile')
             audio_file = request.FILES.get('audioFile')
 
-            if not all([title, text_file, audio_file]):
+            if not all([title, audio_file]):
                 return Response(
                     {'error': 'Missing required fields'},
                     status=400
                 )
 
-            # 读取文本文件内容
-            raw_content = text_file.read()
-            # 检测编码
-            encoding = chardet.detect(raw_content)['encoding']
-            content = raw_content.decode(encoding)
-
-            # 创建文章记录
+            # 先创建文章记录，保存音频文件
             article = Article.objects.create(
                 title=title,
-                text_file=text_file,
-                audio_file=audio_file,
-                content=content
+                audio_file=audio_file
             )
+
+            # 使用 WhisperAnalyzer 分析音频
+            analyzer = WhisperAnalyzer(model_name="base")
+            result = analyzer.analyze_audio(article.audio_file.path)
+
+            # 更新文章内容
+            article.content = result["full_text"]
+            article.save()
+
+            # 保存句子和时间戳信息
+            for idx, sent in enumerate(result["sentences"]):
+                sentence = Sentence.objects.create(
+                    article=article,
+                    content=sent.text,
+                    order=idx,
+                    start_time=sent.start,
+                    end_time=sent.end
+                )
+
+                # 处理句子中的单词
+                for word_info in sent.words:
+                    word, _ = Word.objects.get_or_create(lemma=word_info.text.lower())
+                    word.sentences.add(sentence)
+                    word.articles.add(article)
+                    
+                    # 创建词汇项（如果不存在）
+                    VocabularyItem.objects.get_or_create(word=word)
 
             serializer = self.get_serializer(article)
             return Response(serializer.data, status=201)
 
         except Exception as e:
+            # 如果出错，删除已创建的文章
+            if 'article' in locals():
+                article.delete()
             return Response(
                 {'error': str(e)},
                 status=500
