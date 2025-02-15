@@ -31,7 +31,7 @@ class SentenceSegment:
     end: float
     words: List[Word]
 
-class WhisperAnalyzer:
+class WhisperService:
     # 类级别变量
     _model: ClassVar[Optional['WhisperModel']] = None
     _nlp: ClassVar[Optional['Language']] = None

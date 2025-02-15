@@ -11,15 +11,15 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-class DictReader:
+class DictionaryService:
     """读取StarDict格式词典的类"""
     
     _instance = None
 
     def __new__(cls, filename: str = settings.DICTIONARY_PATH, verbose: bool = False):
-        """确保DictReader是单例"""
+        """确保DictionaryService是单例"""
         if cls._instance is None:
-            cls._instance = super(DictReader, cls).__new__(cls)
+            cls._instance = super(DictionaryService, cls).__new__(cls)
             cls._instance.__initialized = False
         return cls._instance
 
@@ -277,13 +277,13 @@ def format_definition(word_info: Dict[str, Any]) -> str:
         
     return '\n'.join(parts)
 
-def get_dict_reader(verbose: bool = False) -> DictReader:
-    """提供DictReader实例的接口
+def get_dict_reader(verbose: bool = False) -> DictionaryService:
+    """提供DictionaryService实例的接口
     
     Args:
         verbose: 是否输出详细日志
         
     Returns:
-        DictReader实例
+        DictionaryService实例
     """
-    return DictReader(verbose=verbose)
+    return DictionaryService(verbose=verbose)

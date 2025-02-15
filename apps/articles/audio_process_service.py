@@ -8,12 +8,12 @@ from pydub import AudioSegment
 
 from apps.vocabulary.models import VocabularyItem
 
-from .dict_reader import get_dict_reader
+from .dictionary_service import get_dict_reader
 from .tts_service import TTSService
 
 logger = logging.getLogger(__name__)
 
-class AudioProcessor:
+class AudioProcessService:
     # 类级别变量
     audio_cache_dir = Path("audio_cache")
     audio_cache_dir.mkdir(exist_ok=True)

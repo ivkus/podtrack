@@ -5,13 +5,13 @@ from huey.contrib.djhuey import db_task
 
 from apps.vocabulary.models import VocabularyItem
 
-from .audio_analyzer import WhisperAnalyzer
-from .audio_processor import AudioProcessor
+from .whisper_service import WhisperService
+from .audio_process_service import AudioProcessService
 from .models import Article, Sentence, Word
 
 logger = logging.getLogger(__name__)
 
-class WordProcessor:
+class WordProcessService:
     _nlp = None
     exclude_pos = {'PRON', 'NUM', 'PROPN', 'SPACE', 'PUNCT', 'SYM', 'X'}
 
@@ -69,7 +69,7 @@ def process_audio_file(article_id: int):
             article.save()
             
             # 使用 WhisperAnalyzer 分析音频
-            result = WhisperAnalyzer.analyze_audio(article.audio_file.path)
+            result = WhisperService.analyze_audio(article.audio_file.path)
 
             # 更新文章内容
             article.content = result["full_text"]
@@ -91,7 +91,7 @@ def process_audio_file(article_id: int):
                 sentence_words = []
                 for word_info in sent.words:
                     word_text = word_info.text.lower()
-                    should_include, lemma = WordProcessor.filter_word(word_text)
+                    should_include, lemma = WordProcessService.filter_word(word_text)
                     
                     if should_include:
                         # 创建或获取单词对象
@@ -114,7 +114,7 @@ def process_audio_file(article_id: int):
                 })
 
             # 处理音频
-            processed_audio_path = AudioProcessor.process_article_audio(
+            processed_audio_path = AudioProcessService.process_article_audio(
                 article.audio_file.path,
                 sentences_data
             )

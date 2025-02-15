@@ -5,7 +5,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from ...dict_reader import DictReader, format_definition
+from ...dictionary_service import DictionaryService, format_definition
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            reader = DictReader()
+            reader = DictionaryService()
             
             if options['match']:
                 # 匹配模式

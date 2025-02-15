@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from ...audio_analyzer import WhisperAnalyzer
+from ...whisper_service import WhisperService
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class Command(BaseCommand):
             input_path = Path(options['input'])
             
             # 分析音频
-            result = WhisperAnalyzer.analyze_audio(
+            result = WhisperService.analyze_audio(
                 str(input_path), 
                 options['language']
             )
