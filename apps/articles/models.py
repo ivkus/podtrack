@@ -11,7 +11,21 @@ def processed_audio_path(instance, filename):
     return f'articles/processed_audio/{timezone.now().strftime("%Y/%m/%d")}/{filename}'
 
 class Article(models.Model):
-    PROCESSING_STATUS_CHOICES = [
+    TRANSCRIPTION_STATUS_CHOICES = [
+        ('pending', '等待转写'),
+        ('processing', '转写中'),
+        ('completed', '转写完成'),
+        ('failed', '转写失败'),
+    ]
+    
+    ANALYSIS_STATUS_CHOICES = [
+        ('pending', '等待分析'),
+        ('processing', '分析中'),
+        ('completed', '分析完成'),
+        ('failed', '分析失败'),
+    ]
+    
+    AUDIO_PROCESSING_STATUS_CHOICES = [
         ('pending', '等待处理'),
         ('processing', '处理中'),
         ('completed', '处理完成'),
@@ -26,12 +40,28 @@ class Article(models.Model):
     )
     audio_file = models.FileField(upload_to=article_audio_path)
     processed_audio_file = models.FileField(upload_to=processed_audio_path, blank=True, null=True)
-    content = models.TextField(blank=True)  # 也设置为可空
+    content = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    processing_status = models.CharField(
+    
+    # 转写状态（音频->文字）
+    transcription_status = models.CharField(
         max_length=20,
-        choices=PROCESSING_STATUS_CHOICES,
+        choices=TRANSCRIPTION_STATUS_CHOICES,
+        default='pending'
+    )
+    
+    # 分析状态（找出生词）
+    analysis_status = models.CharField(
+        max_length=20,
+        choices=ANALYSIS_STATUS_CHOICES,
+        default='pending'
+    )
+    
+    # 音频处理状态（生成带解说的音频）
+    audio_processing_status = models.CharField(
+        max_length=20,
+        choices=AUDIO_PROCESSING_STATUS_CHOICES,
         default='pending'
     )
 

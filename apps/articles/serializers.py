@@ -47,7 +47,8 @@ class ArticleSerializer(serializers.ModelSerializer):
         model = Article
         fields = [
             'id', 'title', 'text_file', 'audio_file', 
-            'created_at', 'updated_at', 'processing_status'
+            'created_at', 'updated_at', 'transcription_status',
+            'analysis_status', 'audio_processing_status'
         ]
 
 
@@ -56,7 +57,12 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Article
-        fields = ['id', 'title', 'content', 'audio_file', 'created_at', 'updated_at', 'sentences']
+        fields = [
+            'id', 'title', 'content', 'audio_file', 
+            'created_at', 'updated_at', 'sentences',
+            'transcription_status', 'analysis_status', 
+            'audio_processing_status'
+        ]
 
 
 class ArticleAnalysisSerializer(serializers.ModelSerializer):
@@ -70,7 +76,9 @@ class ArticleAnalysisSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'content', 'created_at', 
             'updated_at', 'sentences', 'total_words', 
-            'new_words', 'processed_audio_url'
+            'new_words', 'processed_audio_url',
+            'transcription_status', 'analysis_status', 
+            'audio_processing_status'
         ]
 
     def get_total_words(self, obj):

@@ -57,40 +57,59 @@ class WordProcessService:
         return True, token.lemma_
 
 @db_task()
-def process_audio_file(article_id: int):
-    """处理文章的音频文件"""
+def transcribe_audio(article_id: int):
+    """转写文章的音频文件为文字"""
     try:
-        logger.info(f"开始处理文章 {article_id}")
+        logger.info(f"开始转写文章 {article_id}")
         
         # 使用事务来确保数据一致性
         with transaction.atomic():
             article = Article.objects.get(id=article_id)
-            article.processing_status = 'processing'
+            article.transcription_status = 'processing'
             article.save()
             
-            # 使用 WhisperAnalyzer 分析音频
+            # 使用 WhisperService 分析音频
             result = WhisperService.analyze_audio(article.audio_file.path)
 
             # 更新文章内容
             article.content = result["full_text"]
-            article.save()
-
+            
             # 保存句子和时间戳信息
-            sentences_data = []
             for idx, sent in enumerate(result["sentences"]):
                 # 创建句子对象
-                sentence = Sentence.objects.create(
+                Sentence.objects.create(
                     article=article,
                     content=sent.text,
                     order=idx,
                     start_time=sent.start,
                     end_time=sent.end
                 )
+            
+            article.transcription_status = 'completed'
+            article.save()
 
-                # 处理单词
-                sentence_words = []
-                for word_info in sent.words:
-                    word_text = word_info.text.lower()
+    except Exception as e:
+        logger.error(f"转写音频文件时出错: {str(e)}", exc_info=True)
+        if 'article' in locals():
+            article.transcription_status = 'failed'
+            article.save()
+
+@db_task()
+def analyze_article(article_id: int):
+    """分析文章内容，找出生词"""
+    try:
+        logger.info(f"开始分析文章 {article_id}")
+        
+        with transaction.atomic():
+            article = Article.objects.get(id=article_id)
+            article.analysis_status = 'processing'
+            article.save()
+            
+            # 处理每个句子中的单词
+            for sentence in article.sentences.all():
+                # 使用 WhisperService 的 words 属性获取单词列表
+                for word_text in sentence.content.split():  # 简单按空格分词
+                    word_text = word_text.lower()
                     should_include, lemma = WordProcessService.filter_word(word_text)
                     
                     if should_include:
@@ -98,21 +117,49 @@ def process_audio_file(article_id: int):
                         word, created = Word.objects.get_or_create(lemma=lemma)
                         word.sentences.add(sentence)
                         word.articles.add(article)
-                        sentence_words.append(lemma)
                         
                         vocab_item, vocab_created = VocabularyItem.objects.get_or_create(word=word)
                         logger.info(
                             f"添加词 '{lemma}' 到文章 {article.id} "
                             f"(新词: {created}, 新词汇项: {vocab_created})"
                         )
-                
-                # 收集句子数据用于音频处理
-                sentences_data.append({
-                    'start_time': sent.start,
-                    'end_time': sent.end,
-                    'words': sentence_words
-                })
+            
+            article.analysis_status = 'completed'
+            article.save()
 
+    except Exception as e:
+        logger.error(f"分析文章时出错: {str(e)}", exc_info=True)
+        if 'article' in locals():
+            article.analysis_status = 'failed'
+            article.save()
+
+@db_task()
+def process_article_audio(article_id: int):
+    """处理文章音频，添加单词解释"""
+    try:
+        logger.info(f"开始处理文章音频 {article_id}")
+        
+        with transaction.atomic():
+            article = Article.objects.get(id=article_id)
+            article.audio_processing_status = 'processing'
+            article.save()
+            
+            # 收集句子数据
+            sentences_data = []
+            for sentence in article.sentences.all():
+                # 获取句子中的生词
+                words = []
+                for word in sentence.words.all():
+                    vocab_item = VocabularyItem.objects.filter(word=word).first()
+                    if not vocab_item or (not vocab_item.mastered and not vocab_item.ignored):
+                        words.append(word.lemma)
+                
+                sentences_data.append({
+                    'start_time': sentence.start_time,
+                    'end_time': sentence.end_time,
+                    'words': words
+                })
+            
             # 处理音频
             processed_audio_path = AudioProcessService.process_article_audio(
                 article.audio_file.path,
@@ -121,11 +168,11 @@ def process_audio_file(article_id: int):
             
             # 更新文章的处理后音频路径
             article.processed_audio_file = processed_audio_path
-            article.processing_status = 'completed'
+            article.audio_processing_status = 'completed'
             article.save()
 
     except Exception as e:
-        logger.error(f"处理音频文件时出错: {str(e)}", exc_info=True)
+        logger.error(f"处理文章音频时出错: {str(e)}", exc_info=True)
         if 'article' in locals():
-            article.processing_status = 'failed'
+            article.audio_processing_status = 'failed'
             article.save() 
