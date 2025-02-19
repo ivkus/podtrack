@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+---
+
+# Common Rules for frontend
+
+- use Daisyui as building blocks
+- all the network request should wrap in `src/services/api.js`
+- do not use library which is not in `package.json`
